@@ -9,6 +9,16 @@ class ToolSelectorTests(unittest.IsolatedAsyncioTestCase):
         parsed = safe_parse_tool_list("['lookup_passage', 'nope']", {"lookup_passage"})
         self.assertEqual(parsed, ["lookup_passage"])
 
+    async def test_selector_prioritizes_preferred_tool(self) -> None:
+        selector = VectorToolSelector(
+            tools=[
+                ToolSpec("lookup_passage", "Retrieve primary passages", {}),
+                ToolSpec("cross_reference", "Find related cross references", {}),
+            ]
+        )
+        selected = await selector.select("retrieve primary passages", preferred=("cross_reference",))
+        self.assertEqual(selected[0], "cross_reference")
+
     async def test_selector_prefers_cross_reference_for_related_query(self) -> None:
         selector = VectorToolSelector(
             tools=[

@@ -25,7 +25,7 @@ class ValidationHub:
             issues.append("Missing citations required by the Domain Pack.")
 
         if not policy.allow_unverified_paraphrase:
-            if re.search(r"\b(i think|maybe|perhaps)\b", flattened, flags=re.IGNORECASE):
+            if re.search(r"\b(i think|maybe|perhaps|probably)\b", flattened, flags=re.IGNORECASE):
                 issues.append("Unverified paraphrase/speculation detected.")
 
         for pattern in policy.forbidden_patterns:

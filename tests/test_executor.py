@@ -1,6 +1,6 @@
 import unittest
 
-from domaintoolbelt.core.executor import DependencyResolver
+from domaintoolbelt.core.dependency_graph import DependencyResolver
 from domaintoolbelt.core.planner import HeuristicPlanner
 from domaintoolbelt.domain_packs.bible_pack import BiblePack
 
