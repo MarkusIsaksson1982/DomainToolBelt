@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domaintoolbelt"
+version = "0.1.0"
+description = "A modular framework for faithful multi-domain text interpretation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+domaintoolbelt = "domaintoolbelt.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["domaintoolbelt*"]
+
+[tool.setuptools.package-data]
+domaintoolbelt = ["domain_packs/bible_pack/prompts/*.md"]
