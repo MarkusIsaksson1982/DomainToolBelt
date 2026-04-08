@@ -21,3 +21,9 @@ class DomainPack(Protocol):
     def validate_step(self, tool_name: str, output: Any) -> ValidationResult: ...
 
     def fidelity_audit(self, synthesis: str, citations: tuple[str, ...]) -> ValidationResult: ...
+
+    def load_prompt(self, filename: str, **variables: Any) -> str: ...
+
+
+def has_prompts(pack: Any) -> bool:
+    return callable(getattr(pack, "load_prompt", None))

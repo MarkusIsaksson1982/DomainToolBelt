@@ -57,6 +57,18 @@ class ToolRegistryConfig:
 
 
 @dataclass
+class LLMConfig:
+    enabled: bool = True
+    planner_model: str = ""
+    synthesizer_model: str = ""
+    reranker_model: str = ""
+    temperature: float = 0.1
+    max_tokens: int = 2048
+    structured_output: bool = False
+    structured_fallback: bool = True
+
+
+@dataclass
 class RAGConfig:
     enabled: bool = True
     corpus_path: Path | None = None
@@ -106,6 +118,23 @@ class ValidationResult:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ToolResult:
+    content: Any
+    citations: tuple[str, ...] = ()
+    issues: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FinalAnswer:
+    answer: str
+    citations: tuple[str, ...] = ()
+    confidence: float | None = None
+    issues: tuple[str, ...] = ()
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class PlanStep:
     step_id: str
@@ -142,6 +171,7 @@ class WorkflowContext:
     completed_steps: list[StepOutcome] = field(default_factory=list)
     grounding_report: Any | None = None
     final_answer: str = ""
+    final_payload: FinalAnswer | None = None
 
 
 @dataclass
@@ -154,6 +184,7 @@ class DomainConfig:
     tools: tuple[ToolSpec, ...] = ()
     version: str = "0.1.0"
     authors: tuple[str, ...] = ()
+    llm: LLMConfig = field(default_factory=LLMConfig)
     tool_registry: ToolRegistryConfig = field(default_factory=ToolRegistryConfig)
     rag: RAGConfig = field(default_factory=RAGConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)

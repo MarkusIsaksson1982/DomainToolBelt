@@ -47,6 +47,7 @@ class RAGGroundingLayer:
         synthesis: str,
         retrieved_passages: list[dict[str, str]],
         fidelity_mode: FidelityMode,
+        similarity_threshold: float = 0.2,
     ) -> GroundingReport:
         claims = self._extract_claims(synthesis)
         grounded_claims: list[GroundedClaim] = []
@@ -62,7 +63,7 @@ class RAGGroundingLayer:
                     best_score = score
                     best_passage = passage
 
-            is_grounded = best_score >= 0.2 or fidelity_mode == FidelityMode.GUIDED
+            is_grounded = best_score >= similarity_threshold or fidelity_mode == FidelityMode.GUIDED
             if fidelity_mode == FidelityMode.STRICT and best_passage:
                 is_grounded = self._verbatim_supported(claim, best_passage["text"])
 
@@ -94,7 +95,7 @@ class RAGGroundingLayer:
 
     @staticmethod
     def _extract_claims(synthesis: str) -> list[str]:
-        parts = re.split(r"(?<=[.!?])\s+|\n+", synthesis)
+        parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"\[])|\n+", synthesis)
         claims = [part.strip() for part in parts if len(part.strip()) > 20]
         return claims or [synthesis.strip()]
 

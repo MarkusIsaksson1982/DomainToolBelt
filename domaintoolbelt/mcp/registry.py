@@ -11,8 +11,14 @@ class MCPRegistry:
                 "name": tool.name,
                 "description": tool.description,
                 "input_schema": dict(tool.input_schema),
+                "inputSchema": dict(tool.input_schema),
                 "authoritative": tool.authoritative,
                 "source_scope": tool.source_scope,
+                "annotations": {
+                    "authoritative": tool.authoritative,
+                    "source_scope": tool.source_scope,
+                    "tags": list(tool.tags),
+                },
             }
             for tool in self.pack.config.tools
         ]

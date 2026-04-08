@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Protocol
 
 from domaintoolbelt.core.types import ToolSpec
+from domaintoolbelt.domain_packs.base import has_prompts
+from domaintoolbelt.llm.provider import LLMProvider, ProviderConfig
 
 try:
     from agentmake.utils.rag import cosine_similarity_matrix, get_embeddings
@@ -32,7 +34,64 @@ def safe_parse_tool_list(raw: str, allowed: set[str]) -> list[str]:
 
 
 class ToolReranker(Protocol):
-    async def rerank(self, suggestion: str, candidate_tools: list[str]) -> str: ...
+    async def rerank(self, suggestion: str, candidate_tools: list[str]) -> Any: ...
+
+
+class PromptToolReranker:
+    def __init__(self, provider: LLMProvider, pack: Any):
+        self.provider = provider
+        self.pack = pack
+
+    async def rerank(self, suggestion: str, candidate_tools: list[str]) -> Any:
+        if not has_prompts(self.pack):
+            return candidate_tools
+
+        tool_lookup = {tool.name: tool for tool in self.pack.config.tools}
+        rendered_tools: list[str] = []
+        for tool_name in candidate_tools:
+            tool = tool_lookup.get(tool_name)
+            if tool:
+                rendered_tools.append(f"- {tool.name}: {tool.description}")
+            else:
+                rendered_tools.append(f"- {tool_name}")
+
+        prompt = self.pack.load_prompt(
+            "tool_selection.md",
+            tools="\n".join(rendered_tools),
+        )
+        prompt += (
+            "\n\nCurrent step request:\n"
+            f"{suggestion}\n\nCandidate tools:\n{candidate_tools}"
+        )
+        if self.pack.config.llm.structured_output:
+            return await self.provider.structured(
+                prompt,
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "tool_names": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["tool_names"],
+                },
+                system=_load_optional_prompt(self.pack, "supervisor.md"),
+                config=ProviderConfig(
+                    model=self.pack.config.llm.reranker_model,
+                    temperature=self.pack.config.llm.temperature,
+                    max_tokens=self.pack.config.llm.max_tokens,
+                    response_format="json_object",
+                    metadata={"pack": self.pack.config.key, "phase": "tool_rerank"},
+                ),
+            )
+        return await self.provider.complete(
+            prompt,
+            system=_load_optional_prompt(self.pack, "supervisor.md"),
+            config=ProviderConfig(
+                model=self.pack.config.llm.reranker_model,
+                temperature=self.pack.config.llm.temperature,
+                max_tokens=self.pack.config.llm.max_tokens,
+                metadata={"pack": self.pack.config.key, "phase": "tool_rerank"},
+            ),
+        )
 
 
 def _tokenize(text: str) -> set[str]:
@@ -85,7 +144,12 @@ class VectorToolSelector:
 
         if self.reranker:
             raw = await self.reranker.rerank(suggestion, ranked_names)
-            parsed = safe_parse_tool_list(raw, allowed)
+            if isinstance(raw, dict):
+                raw = raw.get("tool_names", raw)
+            if isinstance(raw, list):
+                parsed = [name for name in raw if isinstance(name, str) and name in allowed]
+            else:
+                parsed = safe_parse_tool_list(str(raw), allowed)
             if parsed:
                 return parsed
 
@@ -142,3 +206,10 @@ class VectorToolSelector:
             except (TypeError, ValueError):
                 return []
         return flattened
+
+
+def _load_optional_prompt(pack: Any, filename: str) -> str | None:
+    try:
+        return pack.load_prompt(filename)
+    except FileNotFoundError:
+        return None

@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import math
 from pathlib import Path
 
 
@@ -24,10 +25,15 @@ class MemoryEntry:
 
 
 class MemoryStore:
-    def __init__(self, root: str | Path = ".domaintoolbelt/memory"):
+    def __init__(
+        self,
+        root: str | Path = ".domaintoolbelt/memory",
+        decay_half_life_days: float = 30.0,
+    ):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "memory.jsonl"
+        self.decay_half_life_days = decay_half_life_days
 
     async def retrieve(self, query: str, top_k: int = 5) -> list[str]:
         entries = self._load_entries()
@@ -35,7 +41,16 @@ class MemoryStore:
         scored: list[tuple[float, MemoryEntry]] = []
         for entry in entries:
             haystack = f"{entry.request} {entry.answer}"
-            score = len(query_tokens & _tokenize(haystack))
+            score = float(len(query_tokens & _tokenize(haystack)))
+            if score > 0 and self.decay_half_life_days > 0:
+                created_at = datetime.fromisoformat(entry.created_at)
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                age_days = max(
+                    0.0,
+                    (datetime.now(timezone.utc) - created_at).total_seconds() / 86400.0,
+                )
+                score *= math.pow(2.0, -age_days / self.decay_half_life_days)
             scored.append((score, entry))
 
         scored.sort(key=lambda item: (-item[0], item[1].created_at))
